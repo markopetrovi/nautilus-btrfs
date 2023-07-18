@@ -23,7 +23,12 @@ XDG_DATA_HOME := $(shell bash -c '				\
 ')
 
 all: $(OBJS)
+	@truncate --size=0 include/.config.h
 	$(CC) $(INCLUDES) -o nautilus-btrfs $(OBJS)
+	@echo  "nautilus-btrfs has been compiled"
+selinux: $(OBJS)
+	@echo "#define CONFIG_SELINUX" > include/.config.h
+	$(CC) $(INCLUDES) -lselinux -o nautilus-btrfs $(OBJS)
 	@echo  "nautilus-btrfs has been compiled"
 # This is a suffix replacement rule for building .o's from .cpp's.
 # It uses automatic variables $<: the name of the prerequisite of
@@ -34,6 +39,7 @@ all: $(OBJS)
 clean:
 	rm -f $(SRC_DIR)/*.o
 	rm -f nautilus-btrfs
+	rm include/.config.h
 install:
 	cp nautilus-btrfs /usr/local/bin/nautilus-btrfs
 	@chown root /usr/local/bin/nautilus-btrfs

@@ -14,9 +14,17 @@
 #include <stdlib.h>
 #include <linux/limits.h>
 
+#ifdef CONFIG_SELINUX
+#include <selinux/selinux.h>
+#include <sys/stat.h>
+#endif
+
 int main(int argc, char *argv[], char *envp[])
 {
-	int action = parse_args(argc, argv);
+	char *parent_dir, *SEcontext = NULL;
+	int ret, action;
+
+	action = parse_args(argc, argv);
 	if (action == SUBVOL_CREATE) {
 		setuid(getuid());
 		chdir_check(argv[2]);
@@ -25,14 +33,42 @@ int main(int argc, char *argv[], char *envp[])
 		struct btrfs_ioctl_vol_args_v2 args = { 0 };
 		strcpy(args.name, argv[3]);
 
+		#ifdef CONFIG_SELINUX
+		/* Obtain SELinux context */
+		if (mkdir(args.name, 0700) < 0) {
+			fprintf(stderr, "Cannot create temporary directory to obtain SELinux context\n%m");
+			exit(10);
+		}
+
+		ret = getfilecon(args.name, &SEcontext);
+		if (ret < 0) {
+			rmdir(args.name);
+			fprintf(stderr, "Cannot get security context for subvolume\n%m");
+			exit(11);
+		}
+
+		ret = rmdir(args.name);
+		if (ret < 0) {
+			fprintf(stderr, "Cannot remove temporary subvolume folder\n%m");
+			exit(12);
+		}
+		#endif
+
 		if (ioctl(parentfd, BTRFS_IOC_SUBVOL_CREATE_V2, &args) < 0) {
 			fprintf(stderr, "Error creating subvolume!\n%m");
 			exit(4);
 		}
+		#ifdef CONFIG_SELINUX
+		ret = setfilecon(args.name, SEcontext);
+		if (ret < 0) {
+			fprintf(stderr, "Cannot set SELinux context for the new subvolume\n%m");
+			exit(13);
+		}
+		#endif
 	}
 
 	if (action == SNAPSHOT_CREATE) {
-		char *parent_dir = malloc(PATH_MAX);
+		parent_dir = malloc(PATH_MAX);
 		/* PATH_MAX-1 in order to leave space for terminator byte */
 		strncpy(parent_dir, argv[argc-2], PATH_MAX-1);
 		strncat(parent_dir, "/..", PATH_MAX-1);
@@ -49,7 +85,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (action == SUBVOL_DELETE) {
-		char *parent_dir = malloc(PATH_MAX);
+		parent_dir = malloc(PATH_MAX);
 		/* PATH_MAX-1 in order to leave space for terminator byte */
 		strncpy(parent_dir, argv[argc-1], PATH_MAX-1);
 		strncat(parent_dir, "/..", PATH_MAX-1);

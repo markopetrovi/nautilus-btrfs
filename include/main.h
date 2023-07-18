@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <.config.h>
 
 extern int parse_args(int argc, char* argv[]);
 
