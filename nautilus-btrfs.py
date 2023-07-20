@@ -260,7 +260,7 @@ def add_dialog_reference(dialog:Gtk.MessageDialog):
 			dialog_ref[i] = dialog
 			return i
 	dialog_ref.append(dialog)
-	return len(async_process_list)-1
+	return len(dialog_ref)-1
 
 def do_delete_handler(dialog:Gtk.MessageDialog, response_id:int, process:helper_subprocess, index:int):
 	if response_id == 1:
